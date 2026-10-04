@@ -1,0 +1,8 @@
+# Normalise line endings on checkin so the repo behaves identically on
+# Windows, Linux and macOS. Python tolerates both, but shell scripts and
+# Docker builds do not.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.bin binary

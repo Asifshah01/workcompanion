@@ -1,0 +1,18 @@
+# ---------------------------------------------------------------------------
+# System (OS-level) packages for hosts that support apt-based installs.
+#
+# Streamlit Community Cloud reads this file and installs the packages with apt
+# before running `pip install -r requirements.txt`.
+#
+# tesseract-ocr powers the OCR fallback in the PDF loader, which is what makes
+# scanned/image-only PDFs readable. It is genuinely optional: without it, text
+# PDFs work exactly as before and only scanned documents fail (with a clear
+# warning rather than a crash).
+#
+# On Windows/macOS install Tesseract yourself and make sure `tesseract` is on
+# PATH, or set OCR_ENABLED=false in your .env.
+# ---------------------------------------------------------------------------
+
+[packages]
+tesseract-ocr = "tesseract-ocr"
+libmagic1 = "libmagic1"

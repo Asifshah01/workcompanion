@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------- secrets
+# .env holds a real GROQ_API_KEY on this machine. Only .env.example is tracked.
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ---------------------------------------------------------------- python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# ---------------------------------------------------------------- tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+
+# ------------------------------------------------------- runtime artefacts
+# Everything under data/ is regenerable: the vector store, the SQLite database,
+# the LLM cache, uploaded documents and test probes. Ignoring the whole tree
+# (rather than enumerating subdirectories) means a new feature that writes
+# somewhere unexpected cannot accidentally commit a binary.
+data/*
+!data/.gitkeep
+
+# The demo corpus is generated on demand by scripts/build_demo_data.py.
+demo/
+
+# Streamlit build/bundle output.
+.streamlit/secrets.toml
+__pycache__/streamlit/
+
+# ---------------------------------------------------------------- editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

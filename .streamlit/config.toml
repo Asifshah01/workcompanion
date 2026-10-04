@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Streamlit runtime configuration.
+#
+# NOTE: address/port are deliberately NOT set. Streamlit Cloud injects $PORT
+# and expects the app to bind 0.0.0.0; hardcoding either breaks the deploy.
+# Locally, Streamlit's defaults (localhost:8501) still apply.
+# ---------------------------------------------------------------------------
+
+[server]
+headless = true
+# Aligns with Settings.max_upload_mb. Raise both together if you need bigger
+# files - Streamlit rejects anything larger before the app ever sees it.
+maxUploadSize = 200
+enableXsrfProtection = true
+enableCORS = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#6C8EF5"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#171A21"
+textColor = "#E6E8EB"
+font = "sans serif"

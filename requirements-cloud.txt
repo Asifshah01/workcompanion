@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------------------
+# Cloud deployment variant of requirements.txt.
+#
+# Use this on hosts with a disk or install-time budget (Streamlit Community
+# Cloud, small containers). It is identical to requirements.txt except that
+# PyTorch is pulled from the CPU-only wheel index.
+#
+# Why: the default PyPI torch wheel bundles CUDA libraries even though this app
+# only ever runs embeddings on the CPU. Locally that is ~500 MB of dead weight;
+# on a cloud host it is the difference between a deploy that finishes and one
+# that times out.
+#
+# Point the host at this file:
+#   Streamlit Cloud ....... Deploy > Advanced settings > Dependencies file path
+#   Docker ................ COPY requirements-cloud.txt and pip install that
+#   GitHub Actions ........ pip install -r requirements-cloud.txt
+#
+# Everything else in the app is unchanged: CPU inference is exactly what the
+# local embedding model already does.
+# ---------------------------------------------------------------------------
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+-r requirements.txt
+
+# Reinstall torch from the CPU index. The == pins keep this deterministic; the
+# range matches requirements.txt so the two files cannot drift apart silently.
+torch>=2.2,<3.0 ; platform_system != "Darwin"

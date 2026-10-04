@@ -1,0 +1,14 @@
+-r requirements.txt
+
+# ---------------------------------------------------------------------------
+# Development / test / demo-tooling extras
+# ---------------------------------------------------------------------------
+pytest>=8.3,<9.0
+pytest-cov>=6.0,<7.0
+ruff>=0.6,<1.0
+
+# Generates the bundled demo PDF (thermodynamics lecture notes) offline.
+fpdf2>=2.8,<3.0
+
+# Optional OCR fallback for scanned PDFs (needs Tesseract binary installed).
+# pytesseract>=0.3.13
