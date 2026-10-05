@@ -59,10 +59,16 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-q --strict-markers"
+addopts = "-q --strict-markers --strict-config"
+xfail_strict = true
+markers = [
+    "slow: touches the real embedding model; excluded from the quick loop",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::UserWarning",
+    # sentence-transformers renamed this accessor; we support both versions.
+    "ignore:get_sentence_embedding_dimension:FutureWarning",
 ]
 
 [tool.ruff]

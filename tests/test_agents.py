@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 from workcompanion.schemas.tutor import Intent
+from workcompanion.schemas.common import GroundingLabel
 from workcompanion.schemas import (
     QuizReport,
     QuizSet,
@@ -23,14 +24,6 @@ from workcompanion.schemas import (
     TutorRequest,
     TutorTurn,
 )
-
-
-@pytest.fixture()
-def seeded(bundle, notes_file):
-    """A bundle with one thermodynamics note indexed."""
-    result = bundle.ingestion.ingest_file(notes_file, subject="Physics")
-    assert result.ok, result.error
-    return bundle
 
 
 def tutor_request(question: str, **kw) -> TutorRequest:
@@ -53,13 +46,13 @@ def plan_input(**kw) -> StudyPlanInput:
 # The shared AgentResult envelope
 # ---------------------------------------------------------------------------
 class TestAgentEnvelope:
-    def test_every_agent_returns_the_same_envelope(self, seeded):
+    def test_agents_returning_an_envelope_share_its_shape(self, seeded):
+        """Q&A-style agents all speak AgentResult, so the UI can render uniformly."""
         from workcompanion.schemas.common import AgentResult
 
         results = [
             seeded.tutor.teach(tutor_request("Explain entropy", subject="Physics")),
             seeded.rag.answer("What is the second law?"),
-            seeded.planner.create_plan(plan_input()),
         ]
 
         for result in results:
@@ -70,6 +63,20 @@ class TestAgentEnvelope:
             assert isinstance(result.warnings, list)
             assert isinstance(result.latency_ms, (int, float))
             assert isinstance(result.metadata, dict)
+            assert 0.0 <= result.confidence <= 1.0
+
+    def test_artifact_agents_return_typed_domain_objects(self, seeded):
+        """Generation agents return the artifact itself, not an envelope.
+
+        A StudyPlan is far more useful to the planner page than a string, and a
+        QuizSet needs its questions intact to be gradeable - so these
+        deliberately do not funnel through AgentResult.
+        """
+        from workcompanion.schemas import FlashcardDeck, QuizSet, StudyPlan
+
+        assert isinstance(seeded.quiz.generate_quiz("Entropy", num_questions=2), QuizSet)
+        assert isinstance(seeded.flashcards.generate_deck("Entropy", count=2), FlashcardDeck)
+        assert isinstance(seeded.planner.create_plan(plan_input()), StudyPlan)
 
     def test_a_successful_answer_has_text(self, seeded):
         result = seeded.tutor.teach(tutor_request("Explain entropy", subject="Physics"))
@@ -162,6 +169,36 @@ class TestRagAgent:
         )
         assert strict.success is False
         assert relaxed.success is True
+
+    def test_general_knowledge_is_never_disguised_as_sourced(self, seeded):
+        """The whole point: an unsourced answer must not look like it is sourced.
+
+        This flag used to be threaded into the prompt but never consulted at the
+        refusal gate, so `allow_general_knowledge=True` refused anyway - and the
+        day that got "fixed" naively, the answer would have come back looking
+        exactly like a grounded one. Both halves matter.
+        """
+        result = seeded.rag.answer(
+            "Who won the 1998 FIFA World Cup final?", allow_general_knowledge=True
+        )
+
+        assert result.success, "the caller explicitly permitted an answer"
+        assert not result.sources, "general knowledge must carry no citations"
+        assert GroundingLabel.GENERAL_KNOWLEDGE in result.grounding
+        assert result.confidence <= 0.35, (
+            "an answer grounded in nothing the learner owns cannot be confident, "
+            f"no matter how good it is (got {result.confidence})"
+        )
+        assert result.warnings, "the learner must be told the source is the model"
+
+    def test_the_permission_changes_nothing_about_the_retrieval(self, seeded):
+        """Permitting general knowledge must not weaken grounded answering."""
+        grounded = seeded.rag.answer(
+            "What is the Gibbs free energy criterion for spontaneity?",
+            allow_general_knowledge=True,
+        )
+        assert grounded.sources, "a genuinely covered question is still cited"
+        assert GroundingLabel.GENERAL_KNOWLEDGE not in grounded.grounding
 
     def test_empty_knowledge_base_still_answers_safely(self, bundle):
         result = bundle.rag.answer("What is entropy?")

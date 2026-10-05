@@ -129,6 +129,16 @@ class RagAgent(AgentBase):
         )
 
         if not outcome.grounded_context_available or not outcome.chunks:
+            # `allow_general_knowledge` used to be threaded into the prompt but
+            # never consulted here, so an out-of-corpus question refused even
+            # when the caller had explicitly permitted general knowledge.
+            if allow_general_knowledge:
+                return self._general_knowledge_answer(
+                    question,
+                    history=list(history or []),
+                    style=style,
+                    intent=intent,
+                )
             return insufficient_evidence_result(self.name, intent=intent)
 
         prompt = self._build_prompt(
@@ -235,6 +245,88 @@ class RagAgent(AgentBase):
             f"- {knowledge_rule}\n"
             f"- If the CONTEXT does not contain the answer, reply exactly:\n"
             f"  NOT_FOUND_IN_CONTEXT: <one sentence on what is missing>"
+        )
+
+    # ------------------------------------------------------------------
+    def _general_knowledge_answer(
+        self,
+        question: str,
+        *,
+        history: Sequence[tuple[str, str]],
+        style: str | None,
+        intent: str = "answer",
+    ) -> AgentResult:
+        """Answer from the model's own knowledge when the documents cannot help.
+
+        Reaching here means retrieval found nothing above the confidence floor,
+        so nothing in the reply is grounded in the learner's material. That is
+        the whole point of labelling it: the answer is explicitly marked as
+        general knowledge, carries no citations, is given a deliberately low
+        confidence, and raises a warning. The alternative - silently answering
+        as though it came from the user's notes - is the failure mode this
+        whole system exists to prevent.
+        """
+        from workcompanion.rag.query_transform import QueryTransformer
+
+        conversation = QueryTransformer.conversation_prompt(question, list(history), limit=4)
+        style_line = {
+            "concise": "Answer in at most 6 short lines.",
+            "detailed": "Give a structured, thorough answer with definitions and key points.",
+            "socratic": "Answer, then pose one probing question to check understanding.",
+            "example_based": "Include at least one worked example.",
+            "mathematical": "Show the governing relations explicitly with symbols and units.",
+            "analogy": "Include one clear analogy or mental model.",
+        }.get(style or "", "Be clear and structured.")
+
+        prompt = (
+            f"{conversation}\n\n"
+            f"QUESTION:\n{question}\n\n"
+            "This question is NOT covered by the learner's documents. You are "
+            "being asked to answer from your own knowledge, and the learner has "
+            "been told that is what you are doing.\n\n"
+            "INSTRUCTIONS:\n"
+            f"- {style_line}\n"
+            "- Answer the question directly. This is a genuine knowledge "
+            "question, not a retrieval task - do not search for context, and "
+            "do not say the information is unavailable.\n"
+            "- Do NOT invent citations, page numbers, quotes or references to "
+            "the learner's documents. There is nothing to cite.\n"
+            "- If you are genuinely unsure of part of it, say so plainly at the "
+            "end rather than guessing."
+        )
+        request = self.build_request(
+            "general_knowledge_answer", user=prompt, temperature=0.3, max_tokens=1800
+        )
+
+        try:
+            response = self.complete(request)
+        except Exception as exc:
+            logger.warning("[knowledge] LLM failed on the general-knowledge path: %s", exc)
+            return insufficient_evidence_result(self.name, intent=intent)
+
+        answer_text = response.text.strip()
+        if not answer_text:
+            return insufficient_evidence_result(self.name, intent=intent)
+
+        return self.result(
+            answer_text,
+            intent=intent,
+            sources=[],
+            # Not grounded in anything the learner owns, so confidence stays low
+            # no matter how good the answer is.
+            confidence=0.3,
+            grounding=[GroundingLabel.GENERAL_KNOWLEDGE],
+            latency_ms=response.latency_ms,
+            warnings=[
+                "Your indexed material does not cover this, so the answer below is "
+                "the model's general knowledge rather than something from your notes."
+            ],
+            response=response,
+            metadata={
+                "evidence": "general_knowledge",
+                "grounded": False,
+                "retrieval_confidence_below_floor": True,
+            },
         )
 
     # ------------------------------------------------------------------

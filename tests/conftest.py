@@ -105,3 +105,17 @@ def bundle(settings):  # noqa: ANN201 - see settings
     from workcompanion.agents.bundle import build_bundle
 
     return build_bundle(settings)
+
+
+@pytest.fixture()
+def seeded(bundle, notes_file):
+    """A bundle with one thermodynamics note already indexed.
+
+    Grounded agents (quiz, flashcards, research) refuse to generate anything
+    when nothing relevant is in the index - that refusal is the hallucination
+    control working, not a defect - so tests that need grounded output use
+    this fixture while plain orchestration tests use ``bundle``.
+    """
+    result = bundle.ingestion.ingest_file(notes_file, subject="Physics")
+    assert result.ok, result.error
+    return bundle

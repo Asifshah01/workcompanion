@@ -159,6 +159,39 @@ def main() -> int:  # noqa: PLR0915
         check("an ungrounded question is refused", not refused.success, refused.answer[:70])
         check("the refusal explains itself", bool(refused.warnings), str(refused.warnings[:1]))
 
+        print("\nGENERAL KNOWLEDGE (explicitly permitted)")
+        # Same question, same empty retrieval - the only difference is that the
+        # caller permits general knowledge. It must answer, and it must say so.
+        general = bundle.rag.answer(
+            "What is the airspeed velocity of an unladen swallow?",
+            allow_general_knowledge=True,
+            require_grounding=True,
+        )
+        check("it answers when permitted", general.success, general.answer[:70])
+        check(
+            "it actually answers rather than refusing",
+            "does not contain" not in general.answer.lower()
+            and "not found" not in general.answer.lower()
+            and "unavailable" not in general.answer.lower(),
+            general.answer[:110],
+        )
+        check(
+            "it carries no citations",
+            not general.sources,
+            "general knowledge must never look sourced",
+        )
+        check(
+            "it is labelled as general knowledge",
+            any("GENERAL_KNOWLEDGE" in str(label) for label in general.grounding),
+            str(general.grounding),
+        )
+        check(
+            "confidence stays deliberately low",
+            general.confidence <= 0.35,
+            f"{general.confidence:.2f}",
+        )
+        check("and it warns the learner", bool(general.warnings), str(general.warnings[:1]))
+
         print("\nQUIZ (live generation)")
         quiz = bundle.quiz.generate_quiz("Photosynthesis", num_questions=3)
         check("a quiz is produced", bool(quiz.questions), f"{len(quiz.questions)} questions")

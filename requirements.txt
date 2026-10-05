@@ -41,4 +41,6 @@ requests>=2.32,<4.0
 # --- Demo dataset -----------------------------------------------------------
 # Generates the bundled demo corpus (incl. a real PDF) with no network access,
 # so a fresh deployment has something to retrieve immediately.
+# Optional OCR extras for scanned PDFs live in requirements-ocr.txt
+# (pytesseract + pdf2image, plus the Tesseract system binary).
 fpdf2>=2.8,<3.0

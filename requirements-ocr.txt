@@ -1,0 +1,16 @@
+# Optional extras: OCR for scanned PDFs.
+#
+# WorkCompanion falls back to OCR when a PDF page yields too little text
+# (see OCR_MIN_CHARS_PER_PAGE / OCR_MAX_PAGES in .env.example). Without these
+# packages a scanned PDF simply indexes as empty and says so, rather than
+# failing silently.
+#
+# Tesseract itself is a system binary:
+#   Windows:  winget install UB-Mannheim.TesseractOCR
+#   macOS:    brew install tesseract
+#   Debian:   apt-get install tesseract-ocr
+#
+# Streamlit Cloud already provides it via packages.toml.
+
+pytesseract>=0.3.13,<1.0
+pdf2image>=1.17,<2.0

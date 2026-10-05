@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 _ENGINE: Engine | None = None
 _SESSION_FACTORY: sessionmaker[Session] | None = None
+_SESSION_ENGINE: Engine | None = None
 _ENGINE_KEY: str = ""
 
 
@@ -65,11 +66,17 @@ def get_engine(settings: Settings | None = None, *, force: bool = False) -> Engi
 
 def get_session_factory(settings: Settings | None = None) -> sessionmaker[Session]:
     """Return the session factory bound to the current engine."""
-    global _SESSION_FACTORY
+    global _SESSION_FACTORY, _SESSION_ENGINE
     settings = settings or get_settings()
     engine = get_engine(settings)
-    if _SESSION_FACTORY is None or _ENGINE_KEY != _engine_key(settings):
+    # Compare against the engine this factory was built from, not the key
+    # string. Checking `_ENGINE_KEY` here looks equivalent but is not:
+    # ``get_engine`` has already updated that global by the time we get here,
+    # so the comparison is always false and the factory is never rebuilt - it
+    # keeps handing out sessions bound to the previous database.
+    if _SESSION_FACTORY is None or _SESSION_ENGINE is not engine:
         _SESSION_FACTORY = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+        _SESSION_ENGINE = engine
     return _SESSION_FACTORY
 
 
@@ -103,8 +110,9 @@ def reset_db(settings: Settings | None = None) -> None:
     """Drop and recreate every table - used by tests and the Settings page."""
     settings = settings or get_settings()
     init_db(settings, drop=True)
-    global _SESSION_FACTORY
+    global _SESSION_FACTORY, _SESSION_ENGINE
     _SESSION_FACTORY = None
+    _SESSION_ENGINE = None
 
 
 def database_summary(settings: Settings | None = None) -> dict[str, object]:
